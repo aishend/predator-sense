@@ -76,6 +76,7 @@ fn refresh_rate() -> Option<u32> {
 }
 
 /// The user-session half of the service, run by predator-sense-agent.service:
+/// - turns the screen back on after suspend/hibernate (NVIDIA can leave it black);
 /// - sets the panel refresh rate chosen for charger / battery when the charger is
 ///   plugged or unplugged, at login and after a Hyprland config reload; a rate you
 ///   set by hand in between is left alone;
@@ -104,6 +105,22 @@ fn agent(sys: &zbus::blocking::Connection) -> ! {
         for line in std::io::BufReader::new(stream).lines().map_while(Result::ok) {
             if line.starts_with("configreloaded>>") {
                 flag.store(true, std::sync::atomic::Ordering::Relaxed);
+            }
+        }
+    });
+    // After suspend/hibernate the NVIDIA panel can stay black (DPMS stays off):
+    // turn it back on when logind says we are awake again.
+    let sys2 = sys.clone();
+    std::thread::spawn(move || {
+        let Ok(p) = zbus::blocking::Proxy::new(&sys2, "org.freedesktop.login1", "/org/freedesktop/login1", "org.freedesktop.login1.Manager") else { return };
+        let Ok(signals) = p.receive_signal("PrepareForSleep") else { return };
+        for m in signals {
+            if matches!(m.body().deserialize::<bool>(), Ok(false)) {
+                for wait in [2, 4] {
+                    std::thread::sleep(std::time::Duration::from_secs(wait));
+                    let _ = std::process::Command::new("hyprctl").args(["dispatch", r#"hl.dsp.dpms({ action = "on" })"#]).output();
+                }
+                eprintln!("resumed: screen turned on");
             }
         }
     });
