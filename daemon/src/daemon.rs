@@ -209,14 +209,14 @@ impl Daemon {
         let p = self.prof_mut();
         p.light = p.light.take().or(old.light.clone());
         p.rear = p.rear.take().or(old.rear.clone());
-        let p = self.prof();
-        if p.fan.is_some() || old.fan.is_some_and(|f| f.mode != "auto") {
+        if self.prof().fan.is_some() || old.fan.is_some_and(|f| f.mode != "auto") {
             self.apply_fan();
         }
-        if p.light != old.light {
+        // The firmware switches the lights off by itself in Eco; leave them so.
+        // In every other mode send them again, also when unchanged: they may
+        // still be off from Eco.
+        if self.mode != Some(hw::ECO) {
             self.apply_light();
-        }
-        if p.rear != old.rear {
             self.apply_rear();
         }
     }

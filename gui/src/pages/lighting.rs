@@ -266,7 +266,11 @@ pub fn lighting(ctx: &Rc<Ctx>) -> gtk::Widget {
     c.append(&rear_card);
 
     ctx.on_update(move |st, _| {
-        for_mode.set_label(&format!("Saved for {} mode. Each mode keeps its own settings.", super::mode_name(&st["mode"])));
+        for_mode.set_label(&if st["mode"] == 6 {
+            "Eco mode: the firmware turns the lights off to save battery. Changes here turn them back on until you leave Eco.".to_string()
+        } else {
+            format!("Saved for {} mode. Each mode keeps its own settings.", super::mode_name(&st["mode"]))
+        });
         let l = st["light"].clone();
         if l.is_null() {
             return;
