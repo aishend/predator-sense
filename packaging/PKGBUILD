@@ -1,6 +1,6 @@
 # Builds from the local source tree: cd packaging && makepkg -si
 pkgname=predator-sense
-pkgver=0.1.9
+pkgver=0.1.10
 pkgrel=1
 pkgdesc="Performance modes, fans, RGB keyboard and battery for the Acer Predator PHN16-72"
 arch=('x86_64')

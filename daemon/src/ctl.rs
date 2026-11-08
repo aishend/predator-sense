@@ -67,12 +67,12 @@ fn main() {
     }
 }
 
-/// Screen refresh rate of the built-in panel (eDP-1) through hyprctl.
-fn refresh_rate() -> Option<u32> {
+/// Built-in panel (eDP-1) through hyprctl: (refresh rate, "XxY" position, scale).
+fn panel() -> Option<(u32, String, f64)> {
     let out = std::process::Command::new("hyprctl").args(["monitors", "-j"]).output().ok()?;
     let mons: Value = serde_json::from_slice(&out.stdout).ok()?;
     let m = mons.as_array()?.iter().find(|m| m["name"] == "eDP-1")?;
-    Some(m["refreshRate"].as_f64()?.round() as u32)
+    Some((m["refreshRate"].as_f64()?.round() as u32, format!("{}x{}", m["x"], m["y"]), m["scale"].as_f64()?))
 }
 
 /// The user-session half of the service, run by predator-sense-agent.service:
@@ -134,13 +134,15 @@ fn agent(sys: &zbus::blocking::Connection) -> ! {
             let event = last_ac != Some(ac) || reloaded.swap(false, std::sync::atomic::Ordering::Relaxed);
             last_ac = Some(ac);
             let want = st[if ac { "refresh_ac" } else { "refresh_dc" }].as_u64().unwrap_or(165) as u32;
-            if event && refresh_rate().is_some_and(|hz| hz != want) {
-                let lua = format!(r#"hl.monitor({{ output = "eDP-1", mode = "2560x1600@{want}", position = "auto", scale = "auto" }})"#);
+            if let Some((hz, pos, scale)) = panel().filter(|p| event && p.0 != want) {
+                let _ = hz;
+                // keep the position and scale the monitor already has (set in monitors.lua)
+                let lua = format!(r#"hl.monitor({{ output = "eDP-1", mode = "2560x1600@{want}", position = "{pos}", scale = {scale} }})"#);
                 let _ = std::process::Command::new("hyprctl").args(["eval", &lua]).output();
                 eprintln!("screen set to {want} Hz ({})", if st["ac"] == true { "charger" } else { "battery" });
             }
         }
-        let Some(se) = get("GetSensors") else { continue };
+        let Some(se) = get("GetTemps") else { continue }; // no firmware calls: they stall the CPU
         for (i, (key, part)) in [("cpu_temp", "CPU"), ("gpu_temp", "GPU")].into_iter().enumerate() {
             match se[key].as_f64() {
                 Some(t) if t >= 90.0 && armed[i] => {

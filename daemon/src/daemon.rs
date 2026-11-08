@@ -89,6 +89,7 @@ pub struct Daemon {
     profile: String,
     tick: u32,
     bus: Option<zbus::blocking::Connection>, // own system-bus connection for power-profiles-daemon
+    slow: Option<(Instant, Value)>,           // EC-only sensors, refreshed at most every 10 s
     pub dirty: bool, // state changed: emit StateChanged
 }
 
@@ -103,6 +104,16 @@ fn on_ac() -> bool {
     std::fs::read_dir("/sys/class/power_supply").into_iter().flatten().flatten().any(|e| {
         let p = e.path().display().to_string();
         matches!(read(&format!("{p}/type")).as_deref(), Some("Mains" | "USB")) && read(&format!("{p}/online")).as_deref() == Some("1")
+    })
+}
+
+/// CPU package temperature from coretemp. Unlike the EC sensors it costs no
+/// firmware (SMM) call: every WMI call stalls all cores for 6-18 ms, and polling
+/// them every 2 s made the sound stutter.
+fn cpu_temp() -> Option<u32> {
+    std::fs::read_dir("/sys/class/hwmon").ok()?.flatten().map(|e| e.path()).find_map(|p| {
+        (read(&format!("{}/name", p.display()))? == "coretemp")
+            .then(|| read(&format!("{}/temp1_input", p.display()))?.parse::<u32>().ok().map(|t| t / 1000))?
     })
 }
 
@@ -141,6 +152,7 @@ impl Daemon {
             mode: None, ac: None, oc_applied: None, curve_pct: vec![0; fans], rapl: None,
             profile: String::new(), tick: 0, dirty: false,
             bus: if sim { None } else { zbus::blocking::Connection::system().ok() },
+            slow: None,
         };
         match saved {
             Some(s) => {
@@ -268,7 +280,7 @@ impl Daemon {
         if f.mode != "curve" {
             return true;
         }
-        let temps = [hw::sensor(&self.w, 0x01), hw::sensor(&self.w, 0x0A)];
+        let temps = self.temps();
         let mut good = true;
         for i in 0..self.fans {
             let (curve, t) = if i == 0 { (&f.cpu_curve, temps[0]) } else { (&f.gpu_curve, temps[1]) };
@@ -440,8 +452,20 @@ impl Daemon {
         })
     }
 
+    /// CPU and GPU temperatures without any firmware call (coretemp, NVML).
+    pub fn temps(&mut self) -> [Option<u32>; 2] {
+        [cpu_temp(), self.gpu.temp()]
+    }
+
+    /// For the GUI. Fans come from the EC (one call each); system and battery
+    /// temperatures are EC-only too, so they are refreshed at most every 10 s.
     pub fn sensors(&mut self) -> Value {
         let s = |id: u8, bit: u16| if self.sensors & 1 << bit != 0 { hw::sensor(&self.w, id) } else { None };
+        if self.slow.as_ref().is_none_or(|(t, _)| t.elapsed().as_secs() >= 10) {
+            let v = json!({ "sys_temp": s(0x03, 2), "battery_temp": hw::battery_temp(&self.w) });
+            self.slow = Some((Instant::now(), v));
+        }
+        let slow = self.slow.as_ref().unwrap().1.clone();
         // CPU package power from RAPL (root-only energy counter)
         let energy = read("/sys/class/powercap/intel-rapl:0/energy_uj").and_then(|v| v.parse::<u64>().ok());
         let cpu_w = match (energy, self.rapl) {
@@ -450,14 +474,14 @@ impl Daemon {
         };
         self.rapl = energy.map(|e| (e, Instant::now()));
         json!({
-            "cpu_temp": s(0x01, 0),
+            "cpu_temp": cpu_temp(),
             "cpu_fan": s(0x02, 1),
-            "sys_temp": s(0x03, 2),
+            "sys_temp": slow["sys_temp"],
             "gpu_fan": s(0x06, 5),
             "gpu2_fan": s(0x09, 8),
-            "gpu_temp": s(0x0A, 9),
+            "gpu_temp": self.gpu.temp(),
             "cpu_power": cpu_w,
-            "battery_temp": hw::battery_temp(&self.w),
+            "battery_temp": slow["battery_temp"],
             "gpu": self.gpu.stats(),
         })
     }

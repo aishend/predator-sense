@@ -69,6 +69,19 @@ impl Gpu {
         }
     }
 
+    /// GPU temperature only (NVML), None while the GPU sleeps.
+    pub fn temp(&mut self) -> Option<u32> {
+        if !self.active() {
+            return None;
+        }
+        let (lib, d) = self.dev()?;
+        let mut v: c_uint = 0;
+        unsafe {
+            let f = lib.get::<unsafe extern "C" fn(Dev, c_int, *mut c_uint) -> c_int>(b"nvmlDeviceGetTemperature").ok()?;
+            (f(d, 0, &mut v) == 0).then_some(v)
+        }
+    }
+
     pub fn stats(&mut self) -> Option<Stats> {
         if !self.active() {
             self.release();

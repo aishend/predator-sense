@@ -140,7 +140,7 @@ pub fn home(ctx: &Rc<Ctx>) -> gtk::Widget {
 
 // ---------------------------------------------------------------- Monitor
 
-const HISTORY: usize = 120;
+const HISTORY: usize = 60; // samples every 2 s = 2 minutes
 
 pub fn monitor(ctx: &Rc<Ctx>) -> gtk::Widget {
     let (sw, c) = page("Monitor");

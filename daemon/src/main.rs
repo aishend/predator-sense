@@ -63,6 +63,11 @@ impl Bus {
     fn get_sensors(&self) -> String {
         self.d.lock().unwrap().sensors().to_string()
     }
+    /// CPU and GPU temperatures only, with no firmware call (for the alerts agent).
+    fn get_temps(&self) -> String {
+        let [cpu, gpu] = self.d.lock().unwrap().temps();
+        serde_json::json!({ "cpu_temp": cpu, "gpu_temp": gpu }).to_string()
+    }
     async fn set_mode(&self, #[zbus(connection)] c: &Connection, #[zbus(header)] h: Header<'_>, mode: u8) -> fdo::Result<()> {
         self.check(c, &h).await?;
         self.run(|d| d.set_mode(mode))

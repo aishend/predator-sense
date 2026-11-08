@@ -96,7 +96,7 @@ fn build(app: &adw::Application) {
     let win = adw::ApplicationWindow::builder().application(app).title("Predator Sense").default_width(1280).default_height(820).content(&view).build();
     ctx.tick(0);
     let n = Cell::new(1u32);
-    glib::timeout_add_local(Duration::from_secs(1), glib::clone!(#[weak] win, #[upgrade_or] glib::ControlFlow::Break, move || {
+    glib::timeout_add_local(Duration::from_secs(2), glib::clone!(#[weak] win, #[upgrade_or] glib::ControlFlow::Break, move || {
         if win.is_visible() {
             ctx.tick(n.get());
             n.set(n.get() + 1);
