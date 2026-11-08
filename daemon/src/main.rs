@@ -75,20 +75,21 @@ impl Bus {
         self.check(c, &h).await?;
         self.run(|d| d.set_policy(false, mode))
     }
-    async fn set_fan(&self, #[zbus(connection)] c: &Connection, #[zbus(header)] h: Header<'_>, json: &str) -> fdo::Result<()> {
+    /// Settings of one mode (`mode`), applied at once when it is the current mode.
+    async fn set_fan(&self, #[zbus(connection)] c: &Connection, #[zbus(header)] h: Header<'_>, mode: u8, json: &str) -> fdo::Result<()> {
         let f: Fan = parse(json)?;
         self.check(c, &h).await?;
-        self.run(|d| d.set_fan(f))
+        self.run(|d| d.set_fan(mode, f))
     }
-    async fn set_light(&self, #[zbus(connection)] c: &Connection, #[zbus(header)] h: Header<'_>, json: &str) -> fdo::Result<()> {
+    async fn set_light(&self, #[zbus(connection)] c: &Connection, #[zbus(header)] h: Header<'_>, mode: u8, json: &str) -> fdo::Result<()> {
         let l: Light = parse(json)?;
         self.check(c, &h).await?;
-        self.run(|d| d.set_light(l, false))
+        self.run(|d| d.set_light(mode, l, false))
     }
-    async fn set_rear(&self, #[zbus(connection)] c: &Connection, #[zbus(header)] h: Header<'_>, json: &str) -> fdo::Result<()> {
+    async fn set_rear(&self, #[zbus(connection)] c: &Connection, #[zbus(header)] h: Header<'_>, mode: u8, json: &str) -> fdo::Result<()> {
         let l: Light = parse(json)?;
         self.check(c, &h).await?;
-        self.run(|d| d.set_light(l, true))
+        self.run(|d| d.set_light(mode, l, true))
     }
     async fn set_option(&self, #[zbus(connection)] c: &Connection, #[zbus(header)] h: Header<'_>, key: &str, json: &str) -> fdo::Result<()> {
         let v: serde_json::Value = parse(json)?;

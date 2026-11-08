@@ -836,7 +836,7 @@ dependencies = [
 
 [[package]]
 name = "predator-sense"
-version = "0.1.6"
+version = "0.1.7"
 dependencies = [
  "gtk4",
  "libadwaita",
@@ -845,7 +845,7 @@ dependencies = [
 
 [[package]]
 name = "predator-sensed"
-version = "0.1.6"
+version = "0.1.7"
 dependencies = [
  "libc",
  "libloading",

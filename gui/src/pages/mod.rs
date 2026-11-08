@@ -17,6 +17,38 @@ pub const MODES: [(u8, &str, &str); 5] = [
     (6, "Eco", "Longest battery life."),
 ];
 
+/// "Settings for" bar: pick the mode whose fans or lighting you are editing.
+/// Follows the active mode until you pick one. Returns the bar and a function
+/// giving the mode being edited for a state (also refreshes the buttons).
+pub fn mode_picker(ctx: &Rc<Ctx>) -> (gtk::Box, impl Fn(&Value) -> u8 + use<>) {
+    let modes: Vec<u8> = ctx.info["modes"].as_array().map(|a| a.iter().filter_map(|v| v.as_u64().map(|v| v as u8)).collect()).unwrap_or(vec![0, 1, 4, 5, 6]);
+    let picked: Rc<Cell<Option<u8>>> = Rc::default();
+    let (p, c, ms) = (picked.clone(), ctx.clone(), modes.clone());
+    let names: Vec<&str> = modes.iter().map(|m| MODES.iter().find(|x| x.0 == *m).map_or("?", |x| x.1)).collect();
+    let (bar, btns) = segmented(&names, move |i| {
+        if !c.is_updating() {
+            p.set(Some(ms[i]));
+            c.update_all();
+        }
+    });
+    let row = hbox(12);
+    row.append(&label("Settings for", "dim"));
+    row.append(&bar);
+    let which = move |st: &Value| {
+        let active = st["mode"].as_u64().map(|m| m as u8);
+        let m = picked.get().or(active).unwrap_or(1);
+        for (i, b) in btns.iter().enumerate() {
+            let name = MODES.iter().find(|x| x.0 == modes[i]).map_or("?", |x| x.1);
+            b.set_label(&if active == Some(modes[i]) { format!("{name} ●") } else { name.to_string() });
+            if modes[i] == m {
+                b.set_active(true);
+            }
+        }
+        m
+    };
+    (row, which)
+}
+
 pub fn mode_name(v: &Value) -> &'static str {
     MODES.iter().find(|m| Some(m.0 as u64) == v.as_u64()).map_or("—", |m| m.1)
 }

@@ -105,9 +105,10 @@ fn to_curve(v: &Value) -> Vec<(f64, f64)> {
 
 pub fn fans(ctx: &Rc<Ctx>) -> gtk::Widget {
     let (sw, c) = page("Fan Control");
-    let for_mode = label("", "dim");
-    c.append(&for_mode);
-    let quiet_note = label("In Quiet mode the fans stay on Automatic.", "warning");
+    let (picker, which_mode) = super::mode_picker(ctx);
+    c.append(&picker);
+    let editing = Rc::new(Cell::new(255u8)); // mode whose fans are shown
+    let quiet_note = label("In Quiet and Eco the fans always stay on Automatic.", "warning");
     c.append(&quiet_note);
 
     // live fan cards
@@ -135,7 +136,7 @@ pub fn fans(ctx: &Rc<Ctx>) -> gtk::Widget {
     // what we last got from the daemon; edits are sent as a full Fan object
     let fan_cfg: Rc<RefCell<Value>> = Rc::new(RefCell::new(json!({})));
     let send = {
-        let (ctx, cfg) = (ctx.clone(), fan_cfg.clone());
+        let (ctx, cfg, ed) = (ctx.clone(), fan_cfg.clone(), editing.clone());
         Rc::new(move |patch: Value| {
             let mut f = cfg.borrow().clone();
             for (k, v) in patch.as_object().unwrap() {
@@ -144,7 +145,7 @@ pub fn fans(ctx: &Rc<Ctx>) -> gtk::Widget {
             if f == *cfg.borrow() {
                 return; // nothing changed (e.g. widgets refreshed from the daemon)
             }
-            ctx.set_json("SetFan", &f);
+            ctx.set_for("SetFan", ed.get(), &f);
         })
     };
 
@@ -233,12 +234,13 @@ pub fn fans(ctx: &Rc<Ctx>) -> gtk::Widget {
             rpm_l.set_label(&format!("{} RPM", se[fan].as_u64().map_or("—".into(), |v| v.to_string())));
             temp_l.set_label(&format!("{}°C", se[temp].as_u64().map_or("—".into(), |v| v.to_string())));
         }
-        let f = st["fan"].clone();
+        let m = which_mode(st);
+        let switched = editing.replace(m) != m;
+        let f = st["profiles"][m.to_string()]["fan"].clone();
         let mode = f["mode"].as_str().unwrap_or("auto").to_owned();
-        if *fan_cfg.borrow() != f {
-            let first = fan_cfg.borrow().get("mode").is_none();
+        if *fan_cfg.borrow() != f || switched {
             fan_cfg.replace(f.clone());
-            if first || curve.borrow().is_empty() {
+            if switched || curve.borrow().is_empty() {
                 curve.replace(to_curve(&f[key(which.get())]));
             }
             for (k, sc) in &sliders {
@@ -255,10 +257,9 @@ pub fn fans(ctx: &Rc<Ctx>) -> gtk::Widget {
             "max" => "Full speed (CoolBoost).",
             _ => "Managed by the firmware.",
         });
-        for_mode.set_label(&format!("Saved for {} mode. Each mode keeps its own settings.", super::mode_name(&st["mode"])));
-        let quiet = st["mode"] == 0;
-        quiet_note.set_visible(quiet);
-        ctrl.set_sensitive(!quiet && ctx2.online());
+        let auto_only = m == 0 || m == 6;
+        quiet_note.set_visible(auto_only);
+        ctrl.set_sensitive(!auto_only && ctx2.online());
         now.set(se[if which.get() == 0 { "cpu_temp" } else { "gpu_temp" }].as_f64());
         editor.queue_draw();
     });

@@ -2,7 +2,7 @@ use crate::{ctx::Ctx, widgets::*};
 use adw::prelude::*;
 use gtk::glib;
 use serde_json::{Value, json};
-use std::{cell::RefCell, rc::Rc};
+use std::{cell::{Cell, RefCell}, rc::Rc};
 
 const EFFECTS: [(&str, &str); 8] = [
     ("static", "Static"), ("breathing", "Breathing"), ("neon", "Neon"), ("wave", "Wave"),
@@ -117,9 +117,9 @@ fn keyboard(light: Rc<RefCell<Value>>, rear: Rc<RefCell<Value>>) -> gtk::Drawing
     a
 }
 
-/// Sends a patched copy of `state` to `method`; skips no-op updates.
-fn sender(ctx: &Rc<Ctx>, state: &Rc<RefCell<Value>>, method: &'static str) -> Rc<dyn Fn(Value)> {
-    let (ctx, state) = (ctx.clone(), state.clone());
+/// Sends a patched copy of `state` to `method` for the mode being edited; skips no-op updates.
+fn sender(ctx: &Rc<Ctx>, state: &Rc<RefCell<Value>>, method: &'static str, mode: &Rc<Cell<u8>>) -> Rc<dyn Fn(Value)> {
+    let (ctx, state, mode) = (ctx.clone(), state.clone(), mode.clone());
     Rc::new(move |patch: Value| {
         let mut l = state.borrow().clone();
         for (k, v) in patch.as_object().unwrap() {
@@ -129,7 +129,7 @@ fn sender(ctx: &Rc<Ctx>, state: &Rc<RefCell<Value>>, method: &'static str) -> Rc
             return; // nothing changed (e.g. widgets refreshed from the daemon)
         }
         state.replace(l.clone()); // preview follows at once
-        ctx.set_json(method, &l);
+        ctx.set_for(method, mode.get(), &l);
     })
 }
 
@@ -137,7 +137,10 @@ pub fn lighting(ctx: &Rc<Ctx>) -> gtk::Widget {
     let (sw, c) = page("Lighting");
     let light: Rc<RefCell<Value>> = Rc::new(RefCell::new(json!({})));
     let rear: Rc<RefCell<Value>> = Rc::new(RefCell::new(json!({})));
-    let send = sender(ctx, &light, "SetLight");
+    let (picker, which_mode) = super::mode_picker(ctx);
+    c.append(&picker);
+    let editing = Rc::new(Cell::new(1u8));
+    let send = sender(ctx, &light, "SetLight", &editing);
 
     let for_mode = label("", "dim");
     c.append(&for_mode);
@@ -247,7 +250,7 @@ pub fn lighting(ctx: &Rc<Ctx>) -> gtk::Widget {
 
     // rear light
     let rear_card = card("Rear logo");
-    let rs = sender(ctx, &rear, "SetRear");
+    let rs = sender(ctx, &rear, "SetRear", &editing);
     let rear_color = gtk::ColorDialogButton::new(Some(gtk::ColorDialog::builder().with_alpha(false).build()));
     let r = rs.clone();
     let deb = debounced(move |hex: String| r(json!({ "color": hex })));
@@ -266,12 +269,12 @@ pub fn lighting(ctx: &Rc<Ctx>) -> gtk::Widget {
     c.append(&rear_card);
 
     ctx.on_update(move |st, _| {
-        for_mode.set_label(&if st["mode"] == 6 {
-            "Eco mode: the firmware turns the lights off to save battery. Changes here turn them back on until you leave Eco.".to_string()
-        } else {
-            format!("Saved for {} mode. Each mode keeps its own settings.", super::mode_name(&st["mode"]))
-        });
-        let l = st["light"].clone();
+        let m = which_mode(st);
+        editing.set(m);
+        for_mode.set_label(if m == 6 { "In Eco the firmware turns the lights off by itself to save battery." } else { "" });
+        for_mode.set_visible(m == 6);
+        let p = &st["profiles"][m.to_string()];
+        let l = p["light"].clone();
         if l.is_null() {
             return;
         }
@@ -296,7 +299,7 @@ pub fn lighting(ctx: &Rc<Ctx>) -> gtk::Widget {
         dir_row.set_visible(matches!(effect, "wave" | "shifting" | "meteor"));
         timeout.set_active(st["kb_timeout"] == true);
 
-        let r = st["rear"].clone();
+        let r = p["rear"].clone();
         rear.replace(r.clone());
         rear_color.set_rgba(&hex_to_rgba(r["color"].as_str().unwrap_or("#00aec7")));
         rear_bright.set_value(r["brightness"].as_f64().unwrap_or(100.0));

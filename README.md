@@ -6,7 +6,7 @@ A Linux version of Acer's PredatorSense, made for the **Acer Predator Helios Neo
 - **Fans:** Automatic, Max, Fixed speed or your own temperature curve.
 - **Keyboard RGB:** 4 zones, the 8 firmware effects, brightness, and switching the light off after 30 s without typing.
 - **Rear lid logo:** colour and brightness (WMI methods 12/13). `predatorctl set rear_off true|false` switches it off and back on, for idle hooks.
-- **Per-mode profiles:** each mode keeps its own fans, keyboard lighting and rear light, and switching mode applies them.
+- **Per-mode profiles:** each mode keeps its own fans, keyboard lighting and rear light, and switching mode applies them. The Fan Control and Lighting pages have a "Settings for" bar to edit any mode without switching to it. Quiet and Eco keep the fans on Automatic; in Eco the firmware turns the lights off.
 - **Battery:** 80% charge limit, calibration, battery temperature, and USB charging while the laptop is off.
 - **GPU:** the Turbo overclock from PredatorSense (+100 MHz core, +200 MHz memory).
 - **Other:** boot sound and panel overdrive.

@@ -72,8 +72,13 @@ impl Ctx {
         });
     }
 
-    pub fn set_json(self: &Rc<Self>, method: &str, v: &Value) {
-        self.set(method, (v.to_string(),).to_variant());
+    /// Settings of one mode: SetFan / SetLight / SetRear (mode, json).
+    pub fn set_for(self: &Rc<Self>, method: &str, mode: u8, v: &Value) {
+        self.set(method, (mode, v.to_string()).to_variant());
+    }
+
+    pub fn is_updating(&self) -> bool {
+        self.updating.get()
     }
 
     pub fn set_option(self: &Rc<Self>, key: &str, v: Value) {

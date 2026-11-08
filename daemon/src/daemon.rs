@@ -209,7 +209,7 @@ impl Daemon {
         let p = self.prof_mut();
         p.light = p.light.take().or(old.light.clone());
         p.rear = p.rear.take().or(old.rear.clone());
-        if self.prof().fan.is_some() || old.fan.is_some_and(|f| f.mode != "auto") {
+        if self.prof().fan.is_some() || old.fan.is_some() {
             self.apply_fan();
         }
         // The firmware switches the lights off by itself in Eco; leave them so.
@@ -234,8 +234,16 @@ impl Daemon {
 
     }
 
+    /// Fans of the current mode; Quiet and Eco always stay on Auto.
+    fn fan(&self) -> Fan {
+        match self.mode {
+            Some(hw::QUIET | hw::ECO) => Fan::default(),
+            _ => self.prof().fan.unwrap_or_default(),
+        }
+    }
+
     fn apply_fan(&mut self) -> bool {
-        let f = self.prof().fan.unwrap_or_default();
+        let f = self.fan();
         let n = self.fans;
         let all = |beh: u8| vec![(beh, 0); n];
         match f.mode.as_str() {
@@ -256,7 +264,10 @@ impl Daemon {
     /// Software fan curve, run every 2 s. Speeds go up at once and only go down
     /// once the temperature is 3 °C under the point that asked for the higher speed.
     fn apply_curve(&mut self) -> bool {
-        let Some(f) = self.prof().fan.filter(|f| f.mode == "curve") else { return true };
+        let f = self.fan();
+        if f.mode != "curve" {
+            return true;
+        }
         let temps = [hw::sensor(&self.w, 0x01), hw::sensor(&self.w, 0x0A)];
         let mut good = true;
         for i in 0..self.fans {
@@ -386,14 +397,29 @@ impl Daemon {
         let w = &self.w;
         let usb = hw::usb_charging(w);
         let bat = hw::battery_health(w);
+        let p = self.prof();
+        let light_now = (
+            p.fan.unwrap_or_default(),
+            p.light.or_else(|| self.read_light()).unwrap_or_default(),
+            p.rear.or_else(|| self.read_rear()).unwrap_or_default(),
+        );
         json!({
             "mode": self.mode,
             "ac": self.ac,
             "ac_mode": self.saved.ac_mode,
             "dc_mode": self.saved.dc_mode,
-            "fan": self.prof().fan.unwrap_or_default(),
-            "light": self.prof().light.or_else(|| self.read_light()).unwrap_or_default(),
-            "rear": self.prof().rear.or_else(|| self.read_rear()).unwrap_or_default(),
+            "fan": light_now.0,
+            "light": light_now.1,
+            "rear": light_now.2,
+            // what each mode is set to, for the "Settings for" bar in the app
+            "profiles": self.modes.iter().map(|m| {
+                let p = self.saved.profiles.get(m).cloned().unwrap_or_default();
+                (m.to_string(), json!({
+                    "fan": p.fan.unwrap_or_default(),
+                    "light": p.light.unwrap_or_else(|| light_now.1.clone()),
+                    "rear": p.rear.unwrap_or_else(|| light_now.2.clone()),
+                }))
+            }).collect::<serde_json::Map<_, _>>(),
             "gpu_oc": self.saved.gpu_oc,
             "refresh_ac": self.saved.refresh_ac,
             "refresh_dc": self.saved.refresh_dc,
@@ -451,18 +477,19 @@ impl Daemon {
         Ok(())
     }
 
-    pub fn set_fan(&mut self, f: Fan) -> R {
+    /// Fans for `mode`; applied now if it is the current mode.
+    pub fn set_fan(&mut self, mode: u8, f: Fan) -> R {
         if !["auto", "max", "custom", "curve"].contains(&f.mode.as_str()) {
             return Err("fan mode must be auto, max, custom or curve".into());
         }
-        if self.mode == Some(hw::QUIET) && f.mode != "auto" {
-            return Err("fans stay on Auto in Quiet mode".into());
+        if !self.modes.contains(&mode) {
+            return Err("mode not supported".into());
         }
         let mut f = f;
         f.cpu_curve.sort();
         f.gpu_curve.sort();
-        let prev = self.prof_mut().fan.replace(f);
-        if !self.apply_fan() {
+        let prev = self.saved.profiles.entry(mode).or_default().fan.replace(f);
+        if self.mode == Some(mode) && !self.apply_fan() {
             self.prof_mut().fan = prev;
             return Err("firmware rejected the fan setting".into());
         }
@@ -471,15 +498,19 @@ impl Daemon {
         Ok(())
     }
 
-    pub fn set_light(&mut self, l: Light, rear: bool) -> R {
+    /// Keyboard (or rear logo) lighting for `mode`; applied now if it is the current mode.
+    pub fn set_light(&mut self, mode: u8, l: Light, rear: bool) -> R {
         if !EFFECTS.contains(&l.effect.as_str()) {
             return Err("unknown effect".into());
+        }
+        if !self.modes.contains(&mode) {
+            return Err("mode not supported".into());
         }
         fn slot(p: &mut Profile, rear: bool) -> &mut Option<Light> {
             if rear { &mut p.rear } else { &mut p.light }
         }
-        let prev = slot(self.prof_mut(), rear).replace(l);
-        if !(if rear { self.apply_rear() } else { self.apply_light() }) {
+        let prev = slot(self.saved.profiles.entry(mode).or_default(), rear).replace(l);
+        if self.mode == Some(mode) && !(if rear { self.apply_rear() } else { self.apply_light() }) {
             *slot(self.prof_mut(), rear) = prev;
             return Err("firmware rejected the lighting setting".into());
         }

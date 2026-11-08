@@ -39,7 +39,7 @@ fn main() {
         ["fan", m] => {
             let mut f = get("GetState")["fan"].clone();
             f["mode"] = json!(m);
-            call("SetFan", &f.to_string());
+            call("SetFan", &(now_mode(&get("GetState")), f.to_string()));
         }
         ["rear", color, rest @ ..] => {
             let mut l = get("GetState")["rear"].clone();
@@ -47,7 +47,7 @@ fn main() {
             if let Some(b) = rest.first() {
                 l["brightness"] = json!(b.parse::<u8>().unwrap_or_else(|_| fail(USAGE)));
             }
-            call("SetRear", &l.to_string());
+            call("SetRear", &(now_mode(&get("GetState")), l.to_string()));
         }
         [which @ "light", effect, rest @ ..] => {
             let mut l = get("GetState")[*which].clone();
@@ -59,7 +59,7 @@ fn main() {
             if let Some(b) = rest.get(1) {
                 l["brightness"] = json!(b.parse::<u8>().unwrap_or_else(|_| fail(USAGE)));
             }
-            call("SetLight", &l.to_string());
+            call("SetLight", &(now_mode(&get("GetState")), l.to_string()));
         }
         ["set", key, value] => { call("SetOption", &(*key, *value)); }
         ["agent"] => agent(&conn),
@@ -143,6 +143,11 @@ fn agent(sys: &zbus::blocking::Connection) -> ! {
             }
         }
     }
+}
+
+/// predatorctl changes the settings of the mode that is active now.
+fn now_mode(st: &Value) -> u8 {
+    st["mode"].as_u64().unwrap_or(1) as u8
 }
 
 fn fail(msg: &str) -> ! {
