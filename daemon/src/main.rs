@@ -125,7 +125,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         let d3 = d.clone();
         std::thread::spawn(move || {
             if let Ok(bus) = zbus::blocking::Connection::system() {
-                power::watch_ppd(&bus, |p| d3.lock().unwrap().ppd_changed(p));
+                power::watch_ppd(&bus, || d3.lock().unwrap().sync_ppd(), |p| d3.lock().unwrap().ppd_changed(p));
             }
         });
     }

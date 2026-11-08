@@ -330,6 +330,13 @@ impl Daemon {
         self.enter_profile(prev);
     }
 
+    /// Tell power-profiles-daemon the profile of the current mode (when it starts).
+    pub fn sync_ppd(&self) {
+        if let (Some(bus), Some(m)) = (&self.bus, self.mode) {
+            power::set_ppd(bus, power::ppd_profile(m));
+        }
+    }
+
     /// The power profile was changed through power-profiles-daemon (Noctalia):
     /// follow it with the matching mode.
     pub fn ppd_changed(&mut self, p: &str) {
