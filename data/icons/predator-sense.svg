@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128">
+  <defs>
+    <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#3fdcf0"/>
+      <stop offset="1" stop-color="#0088a3"/>
+    </linearGradient>
+  </defs>
+  <rect x="6" y="6" width="116" height="116" rx="24" fill="#071216"/>
+  <rect x="6.5" y="6.5" width="115" height="115" rx="23.5" fill="none" stroke="#1d3640"/>
+  <!-- angular visor/claw mark -->
+  <path d="M24 40 L64 22 L104 40 L96 50 L64 36 L32 50 Z" fill="url(#g)"/>
+  <path d="M30 58 L50 66 L46 98 L38 92 Z" fill="url(#g)"/>
+  <path d="M98 58 L78 66 L82 98 L90 92 Z" fill="url(#g)"/>
+  <path d="M56 62 L64 58 L72 62 L68 104 L64 108 L60 104 Z" fill="#ff3d3d"/>
+</svg>

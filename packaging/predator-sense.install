@@ -1,0 +1,30 @@
+# The service is (re)started by predator-sense.hook, after DKMS has built the module.
+
+# The user agent of each logged-in user runs the old predatorctl until restarted.
+_restart_agents() {
+    for u in $(loginctl list-users --no-legend 2>/dev/null | awk '{print $2}'); do
+        systemctl --user -M "$u@" try-restart predator-sense-agent.service 2>/dev/null || true
+    done
+}
+post_install() {
+    systemctl daemon-reload
+    systemctl try-restart power-profiles-daemon.service || true # picks up --block-driver platform_profile
+    systemctl enable predator-sensed.service || true
+    systemctl --global enable predator-sense-agent.service || true
+}
+post_upgrade() {
+    systemctl daemon-reload
+    systemctl try-restart power-profiles-daemon.service || true
+    rm -f /etc/systemd/user/graphical-session.target.wants/predator-sense-alerts.service # renamed to -agent
+    systemctl --global enable predator-sense-agent.service || true
+    _restart_agents
+}
+pre_remove() {
+    systemctl disable --now predator-sensed.service || true
+    systemctl --global disable predator-sense-agent.service || true
+    modprobe -r predator_wmi 2>/dev/null || true
+}
+post_remove() {
+    systemctl daemon-reload
+    systemctl try-restart power-profiles-daemon.service || true
+}

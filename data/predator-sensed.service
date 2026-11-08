@@ -1,0 +1,22 @@
+[Unit]
+Description=Predator Sense service (Acer Predator PHN16-72)
+After=systemd-modules-load.service dbus.service
+ConditionPathExistsGlob=/sys/bus/wmi/devices/7A4DDFE7-5B5D-40B4-8595-4408E0CC7F56*
+
+[Service]
+Type=dbus
+BusName=org.predatorsense.Daemon
+ExecStartPre=-/usr/bin/modprobe predator_wmi
+ExecStart=/usr/bin/predator-sensed
+Restart=on-failure
+RestartSec=2
+StateDirectory=predator-sense
+ProtectHome=yes
+ProtectSystem=strict
+PrivateTmp=yes
+NoNewPrivileges=yes
+RestrictAddressFamilies=AF_UNIX AF_NETLINK
+LockPersonality=yes
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,21 @@
+[package]
+name = "predator-sensed"
+description = "Root service and CLI for the Acer Predator PHN16-72"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[[bin]]
+name = "predator-sensed"
+path = "src/main.rs"
+
+[[bin]]
+name = "predatorctl"
+path = "src/ctl.rs"
+
+[dependencies]
+libc = "0.2.191"
+libloading = "0.9.0"
+serde = { version = "1.0.229", features = ["derive"] }
+serde_json = "1.0.154"
+zbus = "5"

@@ -1,0 +1,39 @@
+# Builds from the local source tree: cd packaging && makepkg -si
+pkgname=predator-sense
+pkgver=0.1.5
+pkgrel=1
+pkgdesc="Performance modes, fans, RGB keyboard and battery for the Acer Predator PHN16-72"
+arch=('x86_64')
+license=('GPL-2.0-or-later')
+depends=('dkms' 'gtk4' 'libadwaita' 'polkit' 'dbus')
+optdepends=('nvidia-utils: GPU monitoring and the Turbo GPU overclock')
+makedepends=('cargo')
+conflicts=('predator-sense-linux')
+install=predator-sense.install
+source=("predator-sense.hook")
+sha256sums=('SKIP')
+_root="$startdir/.."
+
+build() {
+    cd "$_root"
+    cargo build --release --locked --target-dir "$srcdir/target"
+}
+
+package() {
+    local d="$_root/data" t="$srcdir/target/release"
+    install -Dm755 "$t"/{predator-sensed,predatorctl,predator-sense} -t "$pkgdir/usr/bin"
+    install -Dm644 "$d/predator-sensed.service" -t "$pkgdir/usr/lib/systemd/system"
+    install -Dm644 "$d/predator-sense-agent.service" -t "$pkgdir/usr/lib/systemd/user"
+    install -Dm644 "$d/power-profiles-daemon.conf" "$pkgdir/usr/lib/systemd/system/power-profiles-daemon.service.d/predator-sense.conf"
+    install -Dm644 "$d/org.predatorsense.Daemon.conf" -t "$pkgdir/usr/share/dbus-1/system.d"
+    install -Dm644 "$d/org.predatorsense.policy" -t "$pkgdir/usr/share/polkit-1/actions"
+    install -Dm644 "$d/predator-wmi.conf" -t "$pkgdir/usr/lib/modules-load.d"
+    install -Dm644 "$d/predator-sense.desktop" -t "$pkgdir/usr/share/applications"
+    install -Dm644 "$d/icons/predator-sense.svg" -t "$pkgdir/usr/share/icons/hicolor/scalable/apps"
+    install -Dm644 "$d/icons/predator-monitor-symbolic.svg" -t "$pkgdir/usr/share/icons/hicolor/symbolic/apps"
+    install -Dm644 "$srcdir/predator-sense.hook" "$pkgdir/usr/share/libalpm/hooks/90-predator-sense.hook"
+    # DKMS source of the kernel module
+    local k="$pkgdir/usr/src/predator-wmi-$pkgver"
+    install -Dm644 "$_root"/kernel/{predator_wmi.c,predator_wmi_uapi.h,Makefile,dkms.conf} -t "$k"
+    sed -i "s/^PACKAGE_VERSION=.*/PACKAGE_VERSION=\"$pkgver\"/" "$k/dkms.conf"
+}

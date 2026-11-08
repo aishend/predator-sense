@@ -1,0 +1,11 @@
+[package]
+name = "predator-sense"
+description = "GUI for the Acer Predator PHN16-72"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+adw = { version = "0.9.2", package = "libadwaita", features = ["v1_7"] }
+gtk = { version = "0.11.5", package = "gtk4", features = ["v4_18"] }
+serde_json = "1.0.154"

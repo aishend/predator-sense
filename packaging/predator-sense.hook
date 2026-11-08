@@ -1,0 +1,11 @@
+# Runs after 70-dkms-install.hook, so predator_wmi is already built for the running kernel.
+[Trigger]
+Operation = Install
+Operation = Upgrade
+Type = Package
+Target = predator-sense
+
+[Action]
+Description = Reloading predator_wmi and restarting the Predator Sense service...
+When = PostTransaction
+Exec = /usr/bin/sh -c 'systemctl is-enabled -q predator-sensed.service || exit 0; systemctl stop predator-sensed.service; modprobe -r predator_wmi 2>/dev/null; modprobe predator_wmi 2>/dev/null; systemctl start predator-sensed.service || true'

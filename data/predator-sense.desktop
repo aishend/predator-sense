@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=Predator Sense
+Comment=Performance modes, fans, lighting and battery
+Exec=predator-sense
+Icon=predator-sense
+Categories=System;Settings;HardwareSettings;
+Keywords=fan;rgb;keyboard;turbo;battery;acer;

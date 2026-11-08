@@ -1,0 +1,11 @@
+/target
+/packaging/*.pkg.tar.*
+/packaging/src
+/packaging/pkg
+/packaging/predator-sense
+kernel/*.o
+kernel/*.ko
+kernel/*.mod*
+kernel/.*.cmd
+kernel/Module.symvers
+kernel/modules.order

@@ -1,0 +1,74 @@
+/* Predator look: near-black, cyan accent, thin glowing frames. */
+@define-color accent_bg_color #00aec7;
+@define-color accent_color #3fdcf0;
+@define-color accent_fg_color #001318;
+@define-color window_bg_color #0b0f12;
+@define-color view_bg_color #0b0f12;
+@define-color headerbar_bg_color #070a0c;
+@define-color card_bg_color #10171b;
+
+window, .background { background-color: #0b0f12; }
+headerbar { background: #070a0c; box-shadow: none; border-bottom: 1px solid alpha(#00aec7, 0.25); }
+.app-title { font-weight: 600; letter-spacing: 2px; }
+
+.sidebar {
+  background: linear-gradient(180deg, #071014, #0a0f12);
+  border-right: 1px solid alpha(#00aec7, 0.2);
+  padding: 14px 12px;
+  min-width: 230px;
+}
+.brand { margin: 4px 6px 18px 6px; }
+.brand-text { font-size: 20px; font-weight: 800; letter-spacing: 4px; }
+.nav {
+  background: transparent;
+  border-radius: 0;
+  border-left: 3px solid alpha(#00aec7, 0.25);
+  padding: 10px 14px;
+  font-weight: 500;
+}
+.nav:hover { background: alpha(#00aec7, 0.08); }
+.nav:checked { background: linear-gradient(90deg, #0090a8, #00aec7); color: white; border-left-color: #3fdcf0; }
+.footer { padding: 8px; }
+
+.page { padding: 26px 30px; }
+.page-title { font-size: 28px; font-weight: 700; }
+.section { font-size: 17px; font-weight: 600; opacity: 0.8; margin-top: 6px; }
+.panel {
+  background: linear-gradient(160deg, alpha(#00aec7, 0.07), #0e1418 60%);
+  border: 1px solid alpha(#00aec7, 0.28);
+  border-radius: 4px 18px 4px 18px;
+  padding: 18px;
+}
+.panel-title { font-size: 15px; font-weight: 600; letter-spacing: 1px; color: #3fdcf0; }
+.hero { padding: 28px; }
+.hero-title { font-size: 34px; font-weight: 800; }
+.big-number { font-size: 40px; font-weight: 800; color: #3fdcf0; }
+.stat { font-size: 15px; }
+.accent { color: #3fdcf0; font-weight: 600; letter-spacing: 1px; }
+.orange { color: #ff8c26; font-weight: 600; }
+.dim { opacity: 0.6; }
+.warning { color: #ffc24a; }
+.error { color: #ff5a5a; }
+.success { color: #3ddc84; }
+
+.segmented button { padding: 8px 18px; border-radius: 0; }
+.segmented button:checked, .effect:checked { background: #00aec7; color: #001318; font-weight: 700; }
+
+.mode-card {
+  padding: 16px;
+  border-radius: 4px 14px 4px 14px;
+  border: 1px solid alpha(white, 0.08);
+  background: #10171b;
+}
+.mode-card:checked { border-color: #00aec7; background: alpha(#00aec7, 0.16); }
+.mode-name { font-size: 18px; font-weight: 700; }
+.mode-quiet { color: #4ee0b0; }
+.mode-balanced { color: #3fa8ff; }
+.mode-performance { color: #ff8c26; }
+.mode-turbo { color: #ff4060; }
+.mode-eco { color: #7ddc3d; }
+
+.effect { padding: 14px 6px; border-radius: 6px; }
+.keyboard { background: radial-gradient(ellipse at center, #11191d, #070a0c); }
+.swatch { min-width: 30px; min-height: 30px; padding: 0; border-radius: 50%; border: 2px solid alpha(white, 0.2); }
+.swatch:hover { border-color: white; }
