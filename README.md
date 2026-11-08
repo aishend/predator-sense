@@ -12,7 +12,7 @@ A Linux version of Acer's PredatorSense, made for the **Acer Predator Helios Neo
 - **Other:** boot sound and panel overdrive.
 - **Monitoring:** CPU, GPU, system, battery, SSD, Wi-Fi and RAM temperatures, fan RPM, CPU package power, GPU load and RAM.
 - **Battery saving:** power-profiles-daemon keeps driving the CPU, but only through the profile matching the mode (Quiet/Eco = power-saver, Turbo = performance, else balanced). The package starts it with `--block-driver platform_profile`, so the firmware mode stays with predator-sensed. On battery the sound card sleeps when silent.
-- **Alerts:** a desktop notification when the CPU or GPU passes 90 °C (user service `predator-sense-agent`, which also sets the screen Hz and turns the screen back on after suspend/hibernate, which the NVIDIA panel sometimes misses, and pauses media players before sleep so the sound does not loop).
+- **Alerts:** a desktop notification when the CPU or GPU passes 90 °C (user service `predator-sense-agent`, which also sets the screen Hz and turns the screen back on after suspend/hibernate, which the NVIDIA panel sometimes misses).
 
 ## How it fits together
 

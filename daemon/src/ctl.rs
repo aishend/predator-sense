@@ -68,16 +68,6 @@ fn main() {
 }
 
 /// Built-in panel (eDP-1) through hyprctl: (refresh rate, "XxY" position, scale).
-/// Pauses every MPRIS media player on the session bus (browsers, Spotify, mpv…).
-fn pause_players(session: &zbus::blocking::Connection) {
-    let Ok(dbus) = zbus::blocking::fdo::DBusProxy::new(session) else { return };
-    for name in dbus.list_names().unwrap_or_default() {
-        if name.starts_with("org.mpris.MediaPlayer2.") {
-            let _ = session.call_method(Some(name.as_str()), "/org/mpris/MediaPlayer2", Some("org.mpris.MediaPlayer2.Player"), "Pause", &());
-        }
-    }
-}
-
 fn panel() -> Option<(u32, String, f64)> {
     let out = std::process::Command::new("hyprctl").args(["monitors", "-j"]).output().ok()?;
     let mons: Value = serde_json::from_slice(&out.stdout).ok()?;
@@ -91,7 +81,6 @@ fn panel() -> Option<(u32, String, f64)> {
 ///   plugged or unplugged, at login and after a Hyprland config reload; a rate you
 ///   set by hand in between is left alone;
 /// - desktop notification at 90 °C, again only after the part cooled below 85 °C.
-/// - pauses media players before suspend/hibernate.
 fn agent(sys: &zbus::blocking::Connection) -> ! {
     let session = zbus::blocking::Connection::session().unwrap_or_else(|e| fail(&e.to_string()));
     // started before Hyprland exported its socket to systemd: find the instance ourselves
@@ -121,21 +110,12 @@ fn agent(sys: &zbus::blocking::Connection) -> ! {
     });
     // After suspend/hibernate the NVIDIA panel can stay black (DPMS stays off):
     // turn it back on when logind says we are awake again.
-    // Before sleeping, pause every media player (MPRIS): otherwise the sound card loops its
-    // last ~1 s buffer while the system freezes. A "delay" inhibitor gives us time to do it.
     let sys2 = sys.clone();
-    let session2 = session.clone();
     std::thread::spawn(move || {
         let Ok(p) = zbus::blocking::Proxy::new(&sys2, "org.freedesktop.login1", "/org/freedesktop/login1", "org.freedesktop.login1.Manager") else { return };
-        let inhibit = || p.call::<_, _, zbus::zvariant::OwnedFd>("Inhibit", &("sleep", "predatorctl", "Pause media before sleep", "delay")).ok();
-        let mut lock = inhibit();
         let Ok(signals) = p.receive_signal("PrepareForSleep") else { return };
         for m in signals {
-            if matches!(m.body().deserialize::<bool>(), Ok(true)) {
-                pause_players(&session2);
-                lock = None; // let the system go to sleep
-            } else if matches!(m.body().deserialize::<bool>(), Ok(false)) {
-                lock = lock.or_else(inhibit);
+            if matches!(m.body().deserialize::<bool>(), Ok(false)) {
                 for wait in [2, 4] {
                     std::thread::sleep(std::time::Duration::from_secs(wait));
                     let _ = std::process::Command::new("hyprctl").args(["dispatch", r#"hl.dsp.dpms({ action = "on" })"#]).output();
