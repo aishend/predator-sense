@@ -63,6 +63,10 @@ impl Bus {
     fn get_sensors(&self) -> String {
         self.d.lock().unwrap().sensors().to_string()
     }
+    /// Power source and screen Hz settings, with no firmware call (for the agent).
+    fn get_power(&self) -> String {
+        self.d.lock().unwrap().power_info().to_string()
+    }
     /// CPU and GPU temperatures only, with no firmware call (for the alerts agent).
     fn get_temps(&self) -> String {
         let [cpu, gpu] = self.d.lock().unwrap().temps();

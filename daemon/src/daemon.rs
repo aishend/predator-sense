@@ -90,6 +90,7 @@ pub struct Daemon {
     tick: u32,
     bus: Option<zbus::blocking::Connection>, // own system-bus connection for power-profiles-daemon
     slow: Option<(Instant, Value)>,           // EC-only sensors, refreshed at most every 10 s
+    fw: Option<(Instant, Value)>,             // firmware-held settings, re-read at most every 30 s
     pub dirty: bool, // state changed: emit StateChanged
 }
 
@@ -153,6 +154,7 @@ impl Daemon {
             profile: String::new(), tick: 0, dirty: false,
             bus: if sim { None } else { zbus::blocking::Connection::system().ok() },
             slow: None,
+            fw: None,
         };
         match saved {
             Some(s) => {
@@ -412,15 +414,41 @@ impl Daemon {
         })
     }
 
-    pub fn state(&self) -> Value {
-        let w = &self.w;
-        let usb = hw::usb_charging(w);
-        let bat = hw::battery_health(w);
+    /// Settings only the firmware holds. Each read is an SMM call that stalls the
+    /// CPU, so they are read at most every 30 s, and again right after a change.
+    fn firmware(&mut self) -> Value {
+        if self.fw.as_ref().is_none_or(|(t, _)| t.elapsed().as_secs() >= 30) {
+            let w = &self.w;
+            let (usb, bat) = (hw::usb_charging(w), hw::battery_health(w));
+            let v = json!({
+                "boot_sound": hw::boot_sound(w),
+                "lcd_overdrive": if self.lcd { hw::lcd_overdrive(w).map(|v| v == 1) } else { None },
+                "kb_timeout": hw::kb_timeout(w),
+                "usb_charging": usb.map(|u| u.0),
+                "usb_threshold": usb.map(|u| u.1),
+                "battery_limit": bat.map(|b| b.0),
+                "calibration": bat.map(|b| b.1),
+                "light": self.read_light(),
+                "rear": self.read_rear(),
+            });
+            self.fw = Some((Instant::now(), v));
+        }
+        self.fw.as_ref().unwrap().1.clone()
+    }
+
+    /// What the agent needs, with no firmware call.
+    pub fn power_info(&self) -> Value {
+        json!({ "ac": self.ac, "refresh_ac": self.saved.refresh_ac, "refresh_dc": self.saved.refresh_dc })
+    }
+
+    pub fn state(&mut self) -> Value {
+        let fw = self.firmware();
+        let fw_light = |k: &str| serde_json::from_value::<Light>(fw[k].clone()).ok();
         let p = self.prof();
         let light_now = (
             p.fan.unwrap_or_default(),
-            p.light.or_else(|| self.read_light()).unwrap_or_default(),
-            p.rear.or_else(|| self.read_rear()).unwrap_or_default(),
+            p.light.or_else(|| fw_light("light")).unwrap_or_default(),
+            p.rear.or_else(|| fw_light("rear")).unwrap_or_default(),
         );
         json!({
             "mode": self.mode,
@@ -442,13 +470,13 @@ impl Daemon {
             "gpu_oc": self.saved.gpu_oc,
             "refresh_ac": self.saved.refresh_ac,
             "refresh_dc": self.saved.refresh_dc,
-            "boot_sound": hw::boot_sound(w),
-            "lcd_overdrive": if self.lcd { hw::lcd_overdrive(w).map(|v| v == 1) } else { None },
-            "kb_timeout": hw::kb_timeout(w),
-            "usb_charging": usb.map(|u| u.0),
-            "usb_threshold": usb.map(|u| u.1),
-            "battery_limit": bat.map(|b| b.0),
-            "calibration": bat.map(|b| b.1),
+            "boot_sound": fw["boot_sound"],
+            "lcd_overdrive": fw["lcd_overdrive"],
+            "kb_timeout": fw["kb_timeout"],
+            "usb_charging": fw["usb_charging"],
+            "usb_threshold": fw["usb_threshold"],
+            "battery_limit": fw["battery_limit"],
+            "calibration": fw["calibration"],
         })
     }
 
@@ -612,6 +640,7 @@ impl Daemon {
         if !ok {
             return Err("firmware rejected the setting".into());
         }
+        self.fw = None; // re-read the firmware settings on the next state
         self.dirty = true;
         Ok(())
     }

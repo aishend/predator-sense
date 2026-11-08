@@ -129,7 +129,7 @@ fn agent(sys: &zbus::blocking::Connection) -> ! {
     loop {
         std::thread::sleep(std::time::Duration::from_secs(2));
         let get = |m: &str| erased::Body::call(&(), sys, m).ok().and_then(|s| serde_json::from_str::<Value>(&s).ok());
-        if let Some(st) = get("GetState") {
+        if let Some(st) = get("GetPower") { // no firmware calls: they stall the CPU
             let ac = st["ac"] == true;
             let event = last_ac != Some(ac) || reloaded.swap(false, std::sync::atomic::Ordering::Relaxed);
             last_ac = Some(ac);
